@@ -77,6 +77,7 @@ LOCATIONS = [
 # Pädagogische Themen in deutscher Sprache
 EDUCATIONAL_TOPICS = [
     "Achtsamkeit",
+    "Christlicher Glaube",
     "Emotionale Intelligenz",
     "Finanzielle Bildung",
     "Freundlichkeit",
@@ -186,6 +187,7 @@ class StoryGenerator:
         educational_context = {
             "finanzielle bildung": "Lerne über Sparen und kluges Ausgeben",
             "achtsamkeit": "Entdecke die Kraft des Gegenwärtig-Seins",
+            "christlicher glaube": "Lerne über Gott, Jesus und die Bibel",
             "gesunde ernährung": "Erkunde nahrhaftes und leckeres Essen",
             "persönlichkeitsentwicklung": "Baue Selbstvertrauen und Freundlichkeit auf",
             "emotionale intelligenz": "Verstehe und teile Gefühle",
@@ -199,7 +201,7 @@ class StoryGenerator:
         prompt = f"""Schreibe eine Gute-Nacht-Geschichte für {story_request.age_group} über {character_descriptions}. 
         Die Geschichte spielt in dieser Umgebung: {story_request.location}.
         {creature_introduction} 
-        Die Geschichte soll auf eine subtile Art und Weise über {educational_context} lehren. 
+        Die Geschichte soll auf eine subtile Art und Weise über das folgende Thema lehren: {educational_context}. 
         Die Geschichte soll fesselnd, lehrreich und mit einer positiven moralischen Lektion versehen sein.
         Die Geschichte soll mindestens 3 DIN A4 Seiten lang sein.
         Die Geschichte soll in einfachen Worten und kurzen Sätzen erzählt werden.
