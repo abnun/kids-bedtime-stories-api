@@ -1,13 +1,16 @@
 import os
-import json
-from typing import List, Literal, Optional
+from typing import List
 from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from pydantic import BaseModel
-import requests
-import time
+
+import mongodb
+
+import character
+import creature
+import story
 
 # from openai import OpenAI
 import google.generativeai as genai
@@ -34,48 +37,59 @@ app.add_middleware(
 
 
 # Character and Story Models
-class Character(BaseModel):
-    id: Optional[int] = None
-    name: str
-    age: int
-    gender: Literal["weiblich", "männlich"]
-    personality_traits: List[str]
-    interests: List[str]
+# class Character(BaseModel):
+#     id: Optional[int] = None
+#     name: str
+#     age: int
+#     gender: Literal["weiblich", "männlich"]
+#     personality_traits: List[str]
+#     interests: List[str]
+
+
+# class Creature(character.Character):
+#     age: int = 0
+#     looks_like: str
 
 
 class StoryRequest(BaseModel):
-    characters: List[Character]
+    characters: List[character.Character]
+    creatures: List[creature.Creature]
     location: str
     educational_topic: str
     age_group: str
 
 
-class Story(BaseModel):
-    id: Optional[int] = None
-    text: str
+# Standorte in deutscher Sprache
+LOCATIONS = [
+    "Alte Burg",
+    "Bauernhof",
+    "Berglandschaft",
+    "Flussufer",
+    "Garten hinter dem Haus",
+    "Mystischer Wald",
+    "Märchenland",
+    "Raumstation",
+    "Stadtpark",
+    "Strandküste",
+    "Verzauberter Garten",
+]
 
-
-# Hugging Face API URL and headers
-API_URL = "https://api-inference.huggingface.co/models/dbmdz/german-gpt2"
-headers = {"Authorization": "Bearer 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"}
+# Pädagogische Themen in deutscher Sprache
+EDUCATIONAL_TOPICS = [
+    "Achtsamkeit",
+    "Emotionale Intelligenz",
+    "Finanzielle Bildung",
+    "Freundlichkeit",
+    "Gesunde Ernährung",
+    "Mut",
+    "Persönlichkeitsentwicklung",
+    "Respekt",
+    "Teamarbeit",
+    "Umweltschutz",
+]
 
 
 class StoryGenerator:
-    def generate_story(self, story_request: StoryRequest) -> str:
-        """Generate a personalized bedtime story in German"""
-        # Construct a prompt based on input parameters
-        prompt = self._construct_story_prompt(story_request)
-
-        # Generate story using AI
-        payload = {"inputs": prompt, "parameters": {"max_tokens": 1000}}
-        response = requests.post(API_URL, headers=headers, json=payload)
-
-        print(f"response.json(): {response.json()}")
-
-        if response.json() and "error" not in response.json():
-            return response.json()[0]["generated_text"]
-        return "No story could be generated."
-
     # def generate_bedtime_story_openai(self, story_request: StoryRequest, language="de"):
     #     """Generate a personalized bedtime story in German"""
     #     # Construct a prompt based on input parameters
@@ -119,34 +133,6 @@ class StoryGenerator:
         print(f"response: {response.text}")
         return response.text
 
-    def generate_bedtime_story(
-        self, story_request: StoryRequest, max_retries=5, wait_seconds=20
-    ):
-        """Generate a personalized bedtime story in German"""
-        # Construct a prompt based on input parameters
-        prompt = self._construct_story_prompt(story_request)
-
-        for attempt in range(max_retries):
-            response = requests.post(
-                API_URL,
-                headers=headers,
-                json={"inputs": prompt, "parameters": {"max_tokens": 3000}},
-            )
-            result = response.json()
-
-            print(f"result: {result}")
-            # Check if model is still loading
-            if "error" in result and "loading" in result["error"]:
-                print(
-                    f"Attempt {attempt + 1}: Model is loading. Retrying in {wait_seconds} seconds..."
-                )
-                time.sleep(wait_seconds)
-            else:
-                # Return the generated text if no loading error
-                return result[0]["generated_text"]
-
-        raise RuntimeError("Model failed to load after multiple attempts.")
-
     def _construct_story_prompt(self, story_request: StoryRequest) -> str:
         """Create a structured prompt for story generation in German"""
 
@@ -163,10 +149,26 @@ class StoryGenerator:
             [
                 f"{char.name}, {get_gender_specific_article(char.gender)} "
                 f"{char.age}-jährig{get_gender_specific_ending(char.gender)}, "
+                f"{get_gender_specific_pronoun(char.gender)} diese Persönlichkeit hat: {', '.join(char.interests)} und"
                 f"{get_gender_specific_pronoun(char.gender)} gerne {', '.join(char.interests)} mag"
                 for char in story_request.characters
             ]
         )
+
+        if story_request.creatures:
+            creature_descriptions = " und ".join(
+                [
+                    f"{creature.name}, {get_gender_specific_article(creature.gender)} "
+                    f"{creature.looks_like}, "
+                    f"{get_gender_specific_pronoun(creature.gender)} diese Persönlichkeit hat: {', '.join(creature.interests)} und"
+                    f"{get_gender_specific_pronoun(creature.gender)} sich besonders gut mit {', '.join(creature.interests)} auskennt"
+                    for creature in story_request.creatures
+                ]
+            )
+
+            creature_introduction = f"In der Geschichte soll zusätzlich dieses Wesen mitspielen und mit den anderen Charakteren interagieren: {creature_descriptions}"
+        else:
+            creature_introduction = ""
 
         def age_appropriate_choice_of_words():
             age_appropriate_choice_of_words_beginning = (
@@ -195,7 +197,8 @@ class StoryGenerator:
         }.get(story_request.educational_topic.lower(), "Ein magisches Lern-Abenteuer")
 
         prompt = f"""Schreibe eine Gute-Nacht-Geschichte für {story_request.age_group} über {character_descriptions}. 
-        Die Geschichte spielt in dieser Umgebung: {story_request.location}. 
+        Die Geschichte spielt in dieser Umgebung: {story_request.location}.
+        {creature_introduction} 
         Die Geschichte soll auf eine subtile Art und Weise über {educational_context} lehren. 
         Die Geschichte soll fesselnd, lehrreich und mit einer positiven moralischen Lektion versehen sein.
         Die Geschichte soll mindestens 3 DIN A4 Seiten lang sein.
@@ -208,98 +211,6 @@ class StoryGenerator:
         return prompt
 
 
-CHARACTER_JSON_FILE_PATH = "characters.json"
-STORIES_JSON_FILE_PATH = "stories.json"
-
-
-def get_next_character_id(characters: List[Character]) -> int:
-    """Generate the next available ID for a character."""
-    if not characters:
-        return 1
-    return max(character.id for character in characters) + 1
-
-
-def save_characters_to_json(
-    characters: List[Character], file_path: str = CHARACTER_JSON_FILE_PATH
-):
-    """Save the list of characters to a JSON file."""
-    with open(file_path, "w") as file:
-        json.dump([character.model_dump() for character in characters], file, indent=4)
-
-
-def load_characters_from_json(
-    file_path: str = CHARACTER_JSON_FILE_PATH,
-) -> List[Character]:
-    """Load characters from a JSON file and return a list of Character objects."""
-    try:
-        with open(file_path, "r") as file:
-            characters_data = json.load(file)
-            return [Character(**data) for data in characters_data]
-    except FileNotFoundError:
-        return []  # Return an empty list if the file does not exist
-    except json.JSONDecodeError:
-        return []  # Return an empty list if the file is empty or invalid
-
-
-def find_character_by_names(name: str) -> Character:
-    """
-    Find a character by name
-    """
-    for character in load_characters_from_json():
-        if character.name.lower() == name.lower():
-            return character
-    return None
-
-
-def find_character_by_id(
-    characters: List[Story], character_id: int
-) -> Optional[Character]:
-    for character in characters:
-        if character.id == character_id:
-            return character
-    return None
-
-
-def find_characters_by_id(
-    characters: List[Story], character_ids: list[int]
-) -> list[Character]:
-    return [character for character in characters if character.id in character_ids]
-
-
-def get_next_story_id(stories: List[Story]) -> int:
-    """Generate the next available ID for a story."""
-    if not stories:
-        return 1
-    return max(story.id for story in stories) + 1
-
-
-def save_stories_to_json(stories: List[Story], file_path: str = STORIES_JSON_FILE_PATH):
-    """Save the list of stories to a JSON file."""
-    with open(file_path, "w") as file:
-        json.dump([story.model_dump() for story in stories], file, indent=4)
-
-
-def load_stories_from_json(
-    file_path: str = STORIES_JSON_FILE_PATH,
-) -> List[Story]:
-    """Load stories from a JSON file and return a list of Story objects."""
-    try:
-        with open(file_path, "r") as file:
-            stories_data = json.load(file)
-            return [Story(**data) for data in stories_data]
-    except FileNotFoundError:
-        return []  # Return an empty list if the file does not exist
-    except json.JSONDecodeError:
-        return []  # Return an empty list if the file is empty or invalid
-
-
-def find_story_by_id(stories: List[Story], story_id: int) -> Optional[Story]:
-    for story in stories:
-        if story.id == story_id:
-            return story
-    return None
-
-
 story_generator = StoryGenerator()
 
 
@@ -308,16 +219,19 @@ story_generator = StoryGenerator()
     "/api/characters/create",
     name="Charakter erstellen",
     description="Erstelle einen neuen Charakter für Geschichten",
+    tags=["Charaktere"],
 )
-def create_character(character: Character):
+async def create_character(character: character.Character):
     """Erstelle einen neuen Charakter"""
     try:
-        all_characters = load_characters_from_json()
-        character.id = get_next_character_id(all_characters)
-        print(f"New Character ID: {character.id}")
-        all_characters.append(character)
-        save_characters_to_json(all_characters)
-        return character
+        # all_characters = load_characters_from_json()
+        # character.id = get_next_character_id(all_characters)
+        # print(f"New Character ID: {character.id}")
+        # all_characters.append(character)
+        # save_characters_to_json(all_characters)
+        new_character = await character.create()
+
+        return new_character
     except Exception as e:
         raise HTTPException(
             status_code=400, detail=f"Fehler beim Erstellen des Charakters: {str(e)}"
@@ -328,48 +242,207 @@ def create_character(character: Character):
     "/api/characters",
     name="Charaktere auflisten",
     description="Zeige alle verfügbaren Charaktere",
+    tags=["Charaktere"],
 )
-def list_characters():
+async def list_characters():
     """Liste alle verfügbaren Charaktere auf"""
-    return load_characters_from_json()
+    db_characters = mongodb.characters.find()
+    all_characters = []
+    if db_characters:
+        async for my_character in db_characters:
+            try:
+                all_characters.append(character.Character(**my_character))
+            except Exception as e:
+                print(str(e))
+        return all_characters
+    else:
+        return []
 
 
 @app.delete(
     "/api/characters/delete",
     name="Charakter löschen",
     description="Lösche einen Charakter mit der ID.",
+    tags=["Charaktere"],
 )
-def delete_characters(character_id: int):
+async def delete_character(character_id: str):
     """Lösche den Charaktere mit der ID"""
-    all_characters = load_characters_from_json()
-    delete_character = find_character_by_id(all_characters, character_id)
-    if delete_character in all_characters:
-        all_characters.remove(delete_character)
-        save_characters_to_json(all_characters)
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content=f"Character with character_id '{character_id}' successfully deleted.",
-        )
-    else:
+    try:
+        my_character = await mongodb.characters.find_one({"id": character_id})
+        if my_character:
+            result = await mongodb.characters.delete_one({"id": character_id})
+
+            if result.deleted_count > 0:
+                return JSONResponse(
+                    status_code=status.HTTP_200_OK,
+                    content=f"Charakter mit id '{character_id}' erfolgreich gelöscht.",
+                )
+
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"{status.HTTP_404_NOT_FOUND}: Character with character_id '{character_id} not found.",
+            detail=f"{status.HTTP_404_NOT_FOUND}: Charakter mit id '{character_id}' nicht gefunden.",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"{status.HTTP_500_INTERNAL_SERVER_ERROR}: Charakter mit id '{character_id}' konnte nicht gelöscht werden. Exception:\n{str(e)}",
+        )
+
+
+# {"name":"Drago","gender":"männlich","looks_like": "Drache", "interests":["Feuer speien"],"personality_traits":["fröhlich","positiv"]}
+@app.post(
+    "/api/creatures/create",
+    name="Fabelwesen erstellen",
+    description="Erstelle ein neues Fabelwesen für Geschichten",
+    tags=["Fabelwesen"],
+)
+async def create_creature(creature: creature.Creature):
+    """Erstelle ein neues Fabelwesen"""
+    try:
+        new_creature = await creature.create()
+
+        return new_creature
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail=f"Fehler beim Erstellen des Fabelwesens: {str(e)}"
+        )
+
+
+@app.get(
+    "/api/creatures",
+    name="Fabelwesen auflisten",
+    description="Zeige alle verfügbaren Fabelwesen",
+    tags=["Fabelwesen"],
+)
+async def list_creatures():
+    """Liste alle verfügbaren Fabelwesen auf"""
+    db_creatures = mongodb.creatures.find()
+    all_creatures = []
+    if db_creatures:
+        async for my_creature in db_creatures:
+            try:
+                all_creatures.append(creature.Creature(**my_creature))
+            except Exception as e:
+                print(str(e))
+        return all_creatures
+    else:
+        return []
+
+
+@app.delete(
+    "/api/creatures/delete",
+    name="Fabelwesen löschen",
+    description="Lösche ein Fabelwesen mit der ID.",
+    tags=["Fabelwesen"],
+)
+async def delete_creature(creature_id: str):
+    """Lösche das Fabelwesen mit der ID"""
+    try:
+        my_creature = await mongodb.creatures.find_one({"id": creature_id})
+        if my_creature:
+            result = await mongodb.creatures.delete_one({"id": creature_id})
+
+            if result.deleted_count > 0:
+                return JSONResponse(
+                    status_code=status.HTTP_200_OK,
+                    content=f"Fabelwesen mit id '{creature_id}' erfolgreich gelöscht.",
+                )
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"{status.HTTP_404_NOT_FOUND}: Fabelwesen mit id '{creature_id}' nicht gefunden.",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"{status.HTTP_500_INTERNAL_SERVER_ERROR}: Fabelwesen mit id '{creature_id}' konnte nicht gelöscht werden. Exception:\n{str(e)}",
         )
 
 
 # {"characters":["Vinca"],"location":"Verzauberter Garten","educational_topic":"Achtsamkeit","age_group":"Kinder"}
 @app.post(
+    "/api/stories/create",
+    name="Geschichte erstellen",
+    description="Erstelle eine neue Geschichte",
+    tags=["Geschichten"],
+)
+async def create_story(story: story.Story):
+    """Erstelle ein neue Geschichte"""
+    try:
+        new_story = await story.create()
+
+        return new_story
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail=f"Fehler beim Erstellen der Geschichte: {str(e)}"
+        )
+
+
+@app.get(
+    "/api/stories",
+    name="Geschichten auflisten",
+    description="Zeige alle verfügbaren Geschichten",
+    tags=["Geschichten"],
+)
+async def list_stories():
+    """Liste alle verfügbaren Geschichten auf"""
+    db_stories = mongodb.stories.find()
+    all_stories = []
+    if db_stories:
+        async for my_story in db_stories:
+            try:
+                all_stories.append(story.Story(**my_story))
+            except Exception as e:
+                print(str(e))
+        return all_stories
+    else:
+        return []
+
+
+@app.delete(
+    "/api/stories/delete",
+    name="Geschichte löschen",
+    description="Lösche eine Geschichte mit der ID.",
+    tags=["Geschichten"],
+)
+async def delete_story(story_id: str):
+    """Lösche die Geschichte mit der ID"""
+    try:
+        my_story = await mongodb.stories.find_one({"id": story_id})
+        if my_story:
+            result = await mongodb.stories.delete_one({"id": story_id})
+
+            if result.deleted_count > 0:
+                return JSONResponse(
+                    status_code=status.HTTP_200_OK,
+                    content=f"Geschichte mit id '{story_id}' erfolgreich gelöscht.",
+                )
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"{status.HTTP_404_NOT_FOUND}: Geschichte mit id '{story_id}' nicht gefunden.",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"{status.HTTP_500_INTERNAL_SERVER_ERROR}: Geschichte mit id '{story_id}' konnte nicht gelöscht werden. Exception:\n{str(e)}",
+        )
+
+
+# {"characters":[{"id":"6d0d8f31-8e1c-4d75-8934-b588dd5ba36e","name":"Vinca","age":29,"gender":"weiblich","personality_traits":["fröhlich","spontan"],"interests":["Turnen"]}],"creatures":[{"id":"edbaf694-d7c5-42be-aedc-4dd125c378ee","name":"Balu","age":0,"gender":"männlich","personality_traits":["ruhig, gelassen"],"interests":["Achtsamkeit"],"looks_like":"Bär"}],"location":"Garten hinter dem Haus","educational_topic":"Gesunde Ernährung","age_group":"Kinder"}
+@app.post(
     "/api/stories/generate",
     name="Geschichte generieren",
     description="Generiere eine personalisierte Gute-Nacht-Geschichte",
 )
-def generate_story(story_request: StoryRequest):
+async def generate_story(story_request: StoryRequest):
     """Generiere eine personalisierte Gute-Nacht-Geschichte"""
     try:
         print(f"story_request: {story_request}")
 
         new_story_request = StoryRequest(
             characters=story_request.characters,
+            creatures=story_request.creatures,
             location=story_request.location,
             educational_topic=story_request.educational_topic,
             age_group=story_request.age_group,
@@ -377,15 +450,8 @@ def generate_story(story_request: StoryRequest):
         generated_story = story_generator.generate_bedtime_story_google(
             new_story_request
         )
-        print(f"Generated story: {generated_story}")
 
-        all_stories = load_stories_from_json()
-        next_story_id = get_next_story_id(all_stories)
-        print(f"New Story ID: {next_story_id}")
-        new_story = Story(id=next_story_id, text=generated_story)
-        all_stories.append(new_story)
-        save_stories_to_json(all_stories)
-
+        new_story = await create_story(story.Story(text=generated_story))
         return new_story
 
     except Exception as e:
@@ -395,58 +461,19 @@ def generate_story(story_request: StoryRequest):
 
 
 @app.get(
-    "/api/stories/{story_id}",
-    name="Geschichte abrufen",
-    description="Rufe eine zuvor generierte Geschichte ab",
-)
-def retrieve_story(story_id: str):
-    """Rufe eine zuvor generierte Geschichte ab"""
-    all_stories = load_stories_from_json()
-    story_ids = [story.id for story in all_stories]
-    if story_id not in story_ids:
-        raise HTTPException(status_code=404, detail="Geschichte nicht gefunden")
-    return {"story": find_story_by_id(all_stories, story_id)}
-
-
-# Standorte in deutscher Sprache
-LOCATIONS = [
-    "Alte Burg",
-    "Bauernhof",
-    "Berglandschaft",
-    "Flussufer",
-    "Garten hinter dem Haus",
-    "Mystischer Wald",
-    "Märchenland",
-    "Raumstation",
-    "Stadtpark",
-    "Strandküste",
-    "Verzauberter Garten",
-]
-
-# Pädagogische Themen in deutscher Sprache
-EDUCATIONAL_TOPICS = [
-    "Achtsamkeit",
-    "Emotionale Intelligenz",
-    "Finanzielle Bildung",
-    "Freundlichkeit",
-    "Gesunde Ernährung",
-    "Mut",
-    "Persönlichkeitsentwicklung",
-    "Respekt",
-    "Teamarbeit",
-    "Umweltschutz",
-]
-
-
-@app.get(
     "/api/metadata",
     name="Metadaten abrufen",
     description="Rufe vordefinierte Standorte und Themen ab",
 )
-def get_story_metadata():
+async def get_story_metadata():
     """Liefere alle Charakter, vordefinierte Standorte und Themen"""
+
+    characters = await list_characters()
+    creatures = await list_creatures()
+
     return {
-        "characters": load_characters_from_json(),
+        "characters": characters,
+        "creatures": creatures,
         "locations": LOCATIONS,
         "educational_topics": EDUCATIONAL_TOPICS,
     }
