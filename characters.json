@@ -1,0 +1,38 @@
+[
+    {
+        "id": 2,
+        "name": "Markus",
+        "age": 43,
+        "gender": "m\u00e4nnlich",
+        "personality_traits": [
+            "ruhig, introvertiert"
+        ],
+        "interests": [
+            "Finanzen"
+        ]
+    },
+    {
+        "id": 3,
+        "name": "Vinca",
+        "age": 29,
+        "gender": "weiblich",
+        "personality_traits": [
+            "fr\u00f6hlich, spontan"
+        ],
+        "interests": [
+            "Turnen"
+        ]
+    },
+    {
+        "id": 4,
+        "name": "Chantal",
+        "age": 3,
+        "gender": "weiblich",
+        "personality_traits": [
+            "s\u00fc\u00df, lebendig, neugierig"
+        ],
+        "interests": [
+            "Spielzeug"
+        ]
+    }
+]
