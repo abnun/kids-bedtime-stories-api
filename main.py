@@ -149,8 +149,8 @@ class StoryGenerator:
             [
                 f"{char.name}, {get_gender_specific_article(char.gender)} "
                 f"{char.age}-jährig{get_gender_specific_ending(char.gender)}, "
-                f"{get_gender_specific_pronoun(char.gender)} diese Persönlichkeit hat: {', '.join(char.personality_traits)} und"
-                f"{get_gender_specific_pronoun(char.gender)} gerne {', '.join(char.interests)} mag"
+                f"{get_gender_specific_pronoun(char.gender)} diese Persönlichkeit hat: {', '.join(char.personality_traits)} und "
+                f"{get_gender_specific_pronoun(char.gender)} gerne {', '.join(char.interests)} mag und macht"
                 for char in story_request.characters
             ]
         )
@@ -160,7 +160,7 @@ class StoryGenerator:
                 [
                     f"{creature.name}, {get_gender_specific_article(creature.gender)} "
                     f"{creature.looks_like}, "
-                    f"{get_gender_specific_pronoun(creature.gender)} diese Persönlichkeit hat: {', '.join(creature.personality_traits)} und"
+                    f"{get_gender_specific_pronoun(creature.gender)} diese Persönlichkeit hat: {', '.join(creature.personality_traits)} und "
                     f"{get_gender_specific_pronoun(creature.gender)} sich besonders gut mit {', '.join(creature.interests)} auskennt"
                     for creature in story_request.creatures
                 ]
