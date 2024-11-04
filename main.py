@@ -70,8 +70,10 @@ LOCATIONS = [
     "Mystischer Wald",
     "Märchenland",
     "Musikzimmer",
+    "Piratenschiff",
     "Raumstation",
     "Stadtpark",
+    "Steinzeit",
     "Strandküste",
     "Verzauberter Garten",
 ]
@@ -90,6 +92,7 @@ EDUCATIONAL_TOPICS = [
     "Respekt",
     "Teamarbeit",
     "Umweltschutz",
+    "Vogelkunde",
 ]
 
 
@@ -197,6 +200,7 @@ class StoryGenerator:
             "teamarbeit": "Lerne die Kraft der Zusammenarbeit",
             "freundlichkeit": "Entdecke die Bedeutung von Mitgefühl und Güte",
             "umweltschutz": "Lerne, unseren Planeten zu schützen und zu respektieren",
+            "vogelkunde": "Entdecke Vögel und ihre Besonderheiten und Lebensweise",
             "respekt": "Verstehe die Wichtigkeit, andere zu achten und zu behandeln",
             "musik": "Entdecke Instrumente und Gesang",
             "mut": "Finde Kraft und Selbstvertrauen in herausfordernden Situationen",
