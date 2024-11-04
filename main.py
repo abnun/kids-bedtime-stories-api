@@ -66,9 +66,10 @@ LOCATIONS = [
     "Berglandschaft",
     "Flussufer",
     "Garten hinter dem Haus",
+    "Kletterhalle",
     "Mystischer Wald",
     "Märchenland",
-    "Raumstation",
+    "Musikzimmer" "Raumstation",
     "Stadtpark",
     "Strandküste",
     "Verzauberter Garten",
@@ -82,7 +83,7 @@ EDUCATIONAL_TOPICS = [
     "Finanzielle Bildung",
     "Freundlichkeit",
     "Gesunde Ernährung",
-    "Mut",
+    "Musik" "Mut",
     "Persönlichkeitsentwicklung",
     "Respekt",
     "Teamarbeit",
@@ -195,6 +196,7 @@ class StoryGenerator:
             "freundlichkeit": "Entdecke die Bedeutung von Mitgefühl und Güte",
             "umweltschutz": "Lerne, unseren Planeten zu schützen und zu respektieren",
             "respekt": "Verstehe die Wichtigkeit, andere zu achten und zu behandeln",
+            "musik": "Entdecke Instrumente und Gesang",
             "mut": "Finde Kraft und Selbstvertrauen in herausfordernden Situationen",
         }.get(story_request.educational_topic.lower(), "Ein magisches Lern-Abenteuer")
 
