@@ -388,7 +388,28 @@ async def create_story(story: story.Story):
 )
 async def list_stories():
     """Liste alle verfügbaren Geschichten auf"""
-    db_stories = mongodb.stories.find().sort("_id", -1)
+    db_stories = mongodb.stories.find()
+    all_stories = []
+    if db_stories:
+        async for my_story in db_stories:
+            try:
+                all_stories.append(story.Story(**my_story))
+            except Exception as e:
+                print(str(e))
+        return all_stories
+    else:
+        return []
+
+
+@app.get(
+    "/api/stories/sorted",
+    name="Geschichten auflisten",
+    description="Zeige alle verfügbaren Geschichten sortiert nach der letzten und auf 30 begrenzt",
+    tags=["Geschichten"],
+)
+async def list_stories_sorted():
+    """Liste alle verfügbaren Geschichten auf"""
+    db_stories = mongodb.stories.find().sort("_id", -1).limit(30)
     all_stories = []
     if db_stories:
         async for my_story in db_stories:
@@ -474,7 +495,7 @@ async def get_story_metadata():
 
     characters = await list_characters()
     creatures = await list_creatures()
-    stories = await list_stories()
+    stories = await list_stories_sorted()
 
     return {
         "characters": characters,
