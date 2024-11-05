@@ -51,14 +51,6 @@ app.add_middleware(
 #     looks_like: str
 
 
-class StoryRequest(BaseModel):
-    characters: List[character.Character]
-    creatures: List[creature.Creature]
-    location: str
-    educational_topic: str
-    age_group: str
-
-
 # Standorte in deutscher Sprache
 LOCATIONS = [
     "Alte Burg",
@@ -114,7 +106,9 @@ class StoryGenerator:
     #     story = response.choices[0].message.content
     #     return story
 
-    def generate_bedtime_story_google(self, story_request: StoryRequest, language="de"):
+    def generate_bedtime_story_google(
+        self, story_request: story.StoryRequest, language="de"
+    ):
         """Generate a personalized bedtime story in German"""
         # Construct a prompt based on input parameters
         prompt = self._construct_story_prompt(story_request)
@@ -140,7 +134,7 @@ class StoryGenerator:
         print(f"response: {response.text}")
         return response.text
 
-    def _construct_story_prompt(self, story_request: StoryRequest) -> str:
+    def _construct_story_prompt(self, story_request: story.StoryRequest) -> str:
         """Create a structured prompt for story generation in German"""
 
         def get_gender_specific_article(gender: str) -> str:
@@ -445,12 +439,12 @@ async def delete_story(story_id: str):
     name="Geschichte generieren",
     description="Generiere eine personalisierte Gute-Nacht-Geschichte",
 )
-async def generate_story(story_request: StoryRequest):
+async def generate_story(story_request: story.StoryRequest):
     """Generiere eine personalisierte Gute-Nacht-Geschichte"""
     try:
         print(f"story_request: {story_request}")
 
-        new_story_request = StoryRequest(
+        new_story_request = story.StoryRequest(
             characters=story_request.characters,
             creatures=story_request.creatures,
             location=story_request.location,
@@ -461,7 +455,9 @@ async def generate_story(story_request: StoryRequest):
             new_story_request
         )
 
-        new_story = await create_story(story.Story(text=generated_story))
+        new_story = await create_story(
+            story.Story(text=generated_story, request=new_story_request)
+        )
         return new_story
 
     except Exception as e:

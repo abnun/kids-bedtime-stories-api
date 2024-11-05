@@ -1,14 +1,26 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 
 import mongodb
 import uuid
 
+import character
+import creature
+
 STORY_MONGO_DB_COLLECTION = "stories"
+
+
+class StoryRequest(BaseModel):
+    characters: List[character.Character]
+    creatures: List[creature.Creature]
+    location: str
+    educational_topic: str
+    age_group: str
 
 
 class Story(BaseModel):
     id: Optional[str] = None
+    request: StoryRequest
     text: str
 
     async def create(self):
