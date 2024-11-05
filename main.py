@@ -1,10 +1,8 @@
 import os
-from typing import List
 from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from pydantic import BaseModel
 
 import mongodb
 
@@ -390,7 +388,7 @@ async def create_story(story: story.Story):
 )
 async def list_stories():
     """Liste alle verfügbaren Geschichten auf"""
-    db_stories = mongodb.stories.find()
+    db_stories = mongodb.stories.find().sort("_id", -1)
     all_stories = []
     if db_stories:
         async for my_story in db_stories:
@@ -476,11 +474,13 @@ async def get_story_metadata():
 
     characters = await list_characters()
     creatures = await list_creatures()
+    stories = await list_stories()
 
     return {
         "characters": characters,
         "creatures": creatures,
         "locations": LOCATIONS,
+        "stories": stories,
         "educational_topics": EDUCATIONAL_TOPICS,
     }
 

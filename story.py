@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional
+import datetime
 
 import mongodb
 import uuid
@@ -20,12 +21,14 @@ class StoryRequest(BaseModel):
 
 class Story(BaseModel):
     id: Optional[str] = None
-    request: StoryRequest
+    created: Optional[datetime.datetime] = datetime.datetime(2024, 11, 2)
+    request: Optional[StoryRequest] = None
     text: str
 
     async def create(self):
         try:
             self.id = str(uuid.uuid4())
+            self.created = datetime.datetime.now(datetime.timezone.utc)
             if await mongodb.stories.insert_one(self.model_dump()):
                 my_story = await mongodb.stories.find_one({"id": self.id})
                 print(my_story)
