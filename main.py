@@ -16,6 +16,7 @@ import google.generativeai as genai
 # client = OpenAI(api_key="")  # os.environ["OPENAI_API_KEY"])
 
 genai.configure(api_key=os.environ["GOOGLE_GEMINI_API_KEY"])
+nvidia_nemotron_70b_api_key = ""  # os.environ["NVIDIA_NEMOTROON_API_KEY"]
 
 # Create FastAPI app with prefix
 app = FastAPI(
@@ -104,7 +105,41 @@ class StoryGenerator:
     #     story = response.choices[0].message.content
     #     return story
 
-    def generate_bedtime_story_google(
+    async def generate_bedtime_story_nvidia(
+        self, story_request: story.StoryRequest, language="de"
+    ):
+        from openai import AsyncOpenAI
+
+        # Construct a prompt based on input parameters
+        prompt = self._construct_story_prompt(story_request)
+
+        client = AsyncOpenAI(
+            base_url="https://integrate.api.nvidia.com/v1",
+            api_key=nvidia_nemotron_70b_api_key,
+        )
+
+        response = await client.chat.completions.create(
+            model="nvidia/llama-3.1-nemotron-70b-instruct",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            temperature=0.9,
+            top_p=1,
+            # max_tokens=1024,
+            # stream=True,
+        )
+
+        print(f"response: {response.choices[0].message.content}")
+        return response.choices[0].message.content
+
+        # for chunk in completion:
+        # if chunk.choices[0].delta.content is not None:
+        # print(chunk.choices[0].delta.content)
+
+    async def generate_bedtime_story_google(
         self, story_request: story.StoryRequest, language="de"
     ):
         """Generate a personalized bedtime story in German"""
@@ -171,9 +206,9 @@ class StoryGenerator:
 
         def age_appropriate_choice_of_words():
             age_appropriate_choice_of_words_beginning = (
-                "Der Stil und die Wörter der Geschichte müssen in"
+                "Der Stil und die Wörter der Geschichte müssen ausschliesslich in"
             )
-            age_appropriate_choice_of_words_ending = "-gerechter Sprache geschrieben sein und es dürfen keine sexuellen Inhalte in der Geschichte vorkommen!"
+            age_appropriate_choice_of_words_ending = "-gerechter Sprache geschrieben sein und es dürfen keinerlei sexuelle Inhalte in der Geschichte vorkommen!"
             if story_request.age_group == "Kinder":
                 return f"{age_appropriate_choice_of_words_beginning} {story_request.age_group.lower()}{age_appropriate_choice_of_words_ending}"
 
@@ -198,7 +233,7 @@ class StoryGenerator:
             "mut": "Finde Kraft und Selbstvertrauen in herausfordernden Situationen",
         }.get(story_request.educational_topic.lower(), "Ein magisches Lern-Abenteuer")
 
-        prompt = f"""Schreibe eine Gute-Nacht-Geschichte für {story_request.age_group} über {character_descriptions}. 
+        prompt = f"""Schreibe eine Geschichte für {story_request.age_group} über {character_descriptions}. 
         Die Geschichte spielt in dieser Umgebung: {story_request.location}.
         {creature_introduction} 
         Die Geschichte soll auf eine subtile Art und Weise über das folgende Thema lehren: {educational_context}. 
@@ -206,6 +241,7 @@ class StoryGenerator:
         Die Geschichte soll mindestens 3 DIN A4 Seiten lang sein.
         Die Geschichte soll in einfachen Worten und kurzen Sätzen erzählt werden.
         {age_appropriate_choice_of_words()}
+        Gib keinerlei Seitenzahlen und keine anderen Marker und keine Überschriften aus.
         """
 
         print(f"Prompt: {prompt}")
@@ -470,7 +506,7 @@ async def generate_story(story_request: story.StoryRequest):
             educational_topic=story_request.educational_topic,
             age_group=story_request.age_group,
         )
-        generated_story = story_generator.generate_bedtime_story_google(
+        generated_story = await story_generator.generate_bedtime_story_google(
             new_story_request
         )
 
